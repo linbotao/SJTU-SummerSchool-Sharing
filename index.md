@@ -221,3 +221,12 @@ Sim-to-Real 的关键问题是仿真环境与真实手术环境之间存在域�
 > **◆ 未来竞争点是系统能否稳定工作。**单项指标领先并不代表临床可用，系统必须在不同患者、不同设备和异常条件下保持可解释、可接管和可验证。
 
 **说明：**本文根据本人暑校讲座笔记进行结构化重写和主题凝练，旨在呈现研究脉络与个人认识，不替代对相关论文原文的正式学术综述，仅供交流。
+## 访问统计
+
+<div style="text-align: center; margin: 30px auto;">
+
+<p>访客地理分布与累计访问情况</p>
+
+<script type="text/javascript" id="mapmyvisitors" src="//mapmyvisitors.com/map.js?d=1R1tjJkk45MfZy8w8buhuN6nNU--CqRgRsDWVuUZ1PY&cl=ffffff&w=a"></script>
+
+</div>
