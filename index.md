@@ -223,10 +223,174 @@ Sim-to-Real 的关键问题是仿真环境与真实手术环境之间存在域�
 **说明：**本文根据本人暑校讲座笔记进行结构化重写和主题凝练，旨在呈现研究脉络与个人认识，不替代对相关论文原文的正式学术综述，仅供交流。
 ## 访问统计
 
-<div style="text-align: center; margin: 30px auto;">
+<style>
+.sjtu-visitor-shell { margin: 20px 0 8px; }
+.sjtu-visitor-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 12px; }
+.sjtu-visitor-card { padding: 14px 12px; border: 1px solid rgba(27,85,226,.25); border-radius: 8px; background: #f6f8fa; text-align: center; }
+.sjtu-visitor-card small { display: block; margin-bottom: 5px; font-size: .72rem; color: #6a737d; }
+.sjtu-visitor-card b { font-size: 1.15rem; color: #1b55e2; }
+.sjtu-world-map { position: relative; width: 100%; height: 360px; border: 1px solid rgba(27,85,226,.25); border-radius: 8px; overflow: hidden; background: #eef3fb; z-index: 0; }
+.sjtu-map-status { margin-top: 8px; font-size: .8rem; color: #6a737d; text-align: center; }
+.sjtu-recent { margin-top: 12px; padding: 12px 14px; border: 1px dashed rgba(27,85,226,.3); border-radius: 8px; background: #f6f8fa; font-size: .82rem; }
+.sjtu-recent ol { margin: 8px 0 0; padding-left: 1.25rem; line-height: 1.8; color: #24292f; }
+@media (max-width: 640px) { .sjtu-visitor-cards { grid-template-columns: 1fr; } .sjtu-world-map { height: 280px; } }
+</style>
 
-<p>访客地理分布与累计访问情况</p>
-
-<script type="text/javascript" id="mapmyvisitors" src="//mapmyvisitors.com/map.js?d=1R1tjJkk45MfZy8w8buhuN6nNU--CqRgRsDWVuUZ1PY&cl=ffffff&w=a"></script>
-
+<div class="sjtu-visitor-shell">
+  <div class="sjtu-visitor-cards">
+    <div class="sjtu-visitor-card"><small>总访问量</small><b id="sjtu-total">-</b></div>
+    <div class="sjtu-visitor-card"><small>去重访客</small><b id="sjtu-unique">-</b></div>
+    <div class="sjtu-visitor-card"><small>当前 IP</small><b id="sjtu-ip">-</b></div>
+  </div>
+  <div class="sjtu-world-map" id="sjtu-world-map"></div>
+  <div class="sjtu-map-status" id="sjtu-map-status">正在加载访客位置...</div>
+  <div class="sjtu-recent">
+    <strong>最近访问 IP</strong>
+    <ol id="sjtu-recent"></ol>
+  </div>
 </div>
+
+<script>
+(function () {
+  var api = "{{ site.visitor_api | default: 'https://linbotao-visitor-tracker.visitor-tracker.workers.dev' }}".trim();
+  var site = "{{ site.visitor_site | default: 'SJTU-SummerSchool-Sharing' }}".trim() || 'SJTU-SummerSchool-Sharing';
+  var page = window.location.pathname;
+  var idKey = 'sjtu_visitor_id';
+  var visitorId = localStorage.getItem(idKey) || ('sj' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
+  try { localStorage.setItem(idKey, visitorId); } catch (e) {}
+
+  function $(id) { return document.getElementById(id); }
+  function setText(id, value) { var el = $(id); if (el) el.textContent = value; }
+  function timeoutFetch(url, options, ms) {
+    return Promise.race([
+      fetch(url, options),
+      new Promise(function (_, reject) { setTimeout(function () { reject(new Error('timeout')); }, ms); })
+    ]);
+  }
+  function renderRecent(items) {
+    var list = $('sjtu-recent');
+    if (!list) return;
+    list.innerHTML = '';
+    if (!items || !items.length) {
+      var empty = document.createElement('li');
+      empty.textContent = '暂无记录';
+      list.appendChild(empty);
+      return;
+    }
+    items.slice(0, 10).forEach(function (item) {
+      var li = document.createElement('li');
+      var time = item.time ? new Date(item.time).toLocaleString() : '';
+      li.textContent = (item.ip || 'unknown') + (time ? ' - ' + time : '');
+      list.appendChild(li);
+    });
+  }
+  function applyStats(data) {
+    if (!data) return;
+    if (typeof data.total === 'number') setText('sjtu-total', data.total);
+    if (typeof data.unique === 'number') setText('sjtu-unique', data.unique);
+    if (data.recent) {
+      renderRecent(data.recent);
+      if (typeof window.renderSJTUVisitorMap === 'function') window.renderSJTUVisitorMap(data.recent);
+    }
+  }
+  function track() {
+    timeoutFetch(api.replace(/\/+$/, '') + '/api/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ site: site, visitorId: visitorId, page: page, ua: navigator.userAgent.slice(0, 160) })
+    }, 6000).then(function (r) { return r.json(); }).then(applyStats).catch(function () {});
+  }
+  function fetchStats() {
+    timeoutFetch(api.replace(/\/+$/, '') + '/api/stats?site=' + encodeURIComponent(site), { method: 'GET' }, 6000)
+      .then(function (r) { return r.json(); }).then(applyStats).catch(function () {});
+  }
+  function init() {
+    var isLocal = location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (!isLocal && api) { track(); fetchStats(); } else { renderRecent([]); }
+    timeoutFetch('https://api.ipify.org?format=json', { method: 'GET' }, 6000)
+      .then(function (r) { return r.json(); })
+      .then(function (d) { if (d && d.ip) setText('sjtu-ip', d.ip); })
+      .catch(function () {});
+  }
+  init();
+})();
+</script>
+
+<script>
+(function () {
+  var map = null;
+  var mapReady = false;
+  var plotted = 0;
+  function setStatus(text) { var el = document.getElementById('sjtu-map-status'); if (el) el.textContent = text; }
+  function loadLeaflet(callback) {
+    if (window.L && window.L.Map) { callback(); return; }
+    if (!document.getElementById('sjtu-leaflet-css')) {
+      var link = document.createElement('link');
+      link.id = 'sjtu-leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+      document.head.appendChild(link);
+    }
+    var script = document.getElementById('sjtu-leaflet-js');
+    if (script) { if (window.L) callback(); else script.addEventListener('load', callback); return; }
+    script = document.createElement('script');
+    script.id = 'sjtu-leaflet-js';
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    script.async = true;
+    script.onload = callback;
+    script.onerror = function () { setStatus('地图加载失败'); };
+    document.head.appendChild(script);
+  }
+  function initMap() {
+    if (mapReady) return;
+    mapReady = true;
+    map = L.map('sjtu-world-map', { zoomControl: true, scrollWheelZoom: false, worldCopyJump: true }).setView([20, 0], 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    setTimeout(function () { if (map) map.invalidateSize(); }, 250);
+    window.addEventListener('resize', function () { if (map) map.invalidateSize(); });
+  }
+  function label(item) {
+    var parts = [];
+    if (item.city) parts.push(item.city);
+    if (item.region && item.region !== item.city) parts.push(item.region);
+    if (item.country) parts.push(item.country);
+    if (!parts.length) parts.push(item.ip || 'unknown');
+    return parts.join(', ');
+  }
+  function plot(item) {
+    var lat = parseFloat(item.lat), lon = parseFloat(item.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
+    if (!map) return;
+    L.circleMarker([lat, lon], { radius: 5, weight: 1, color: '#1b55e2', fillColor: '#1b55e2', fillOpacity: 0.8 })
+      .addTo(map).bindPopup('<strong>' + label(item) + '</strong><br>' + (item.ip || '') + (item.time ? '<br>' + new Date(item.time).toLocaleString() : ''));
+    plotted += 1;
+    setStatus('已显示 ' + plotted + ' 个访客位置');
+  }
+  function locate(item) {
+    if (!item || !item.ip) return;
+    if (item.lat && item.lon) { plot(item); return; }
+    if (item.ip === 'unknown' || item.ip.indexOf(':') >= 0) return;
+    var cached = null;
+    try { cached = JSON.parse(localStorage.getItem('sjtu-geo:' + item.ip) || 'null'); } catch (e) {}
+    if (cached && cached.lat && cached.lon) { plot(Object.assign({}, item, cached)); return; }
+    fetch('https://ipwho.is/' + encodeURIComponent(item.ip), { mode: 'cors' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.success) return;
+        var geo = { city: d.city || '', region: d.region || '', country: d.country || '', lat: parseFloat(d.latitude), lon: parseFloat(d.longitude) };
+        try { localStorage.setItem('sjtu-geo:' + item.ip, JSON.stringify(geo)); } catch (e) {}
+        plot(Object.assign({}, item, geo));
+      })
+      .catch(function () {});
+  }
+  function render(items) {
+    var list = Array.isArray(items) ? items.slice(0, 30) : [];
+    if (!list.length) { setStatus('暂无访客位置'); return; }
+    loadLeaflet(function () { initMap(); list.forEach(locate); });
+  }
+  window.renderSJTUVisitorMap = render;
+})();
+</script>

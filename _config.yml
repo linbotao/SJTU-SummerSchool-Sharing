@@ -3,3 +3,5 @@ description: 暑校前沿研究总结、共性痛点与个人思考
 theme: jekyll-theme-cayman
 lang: zh-CN
 show_downloads: false
+visitor_api: https://linbotao-visitor-tracker.visitor-tracker.workers.dev
+visitor_site: SJTU-SummerSchool-Sharing
